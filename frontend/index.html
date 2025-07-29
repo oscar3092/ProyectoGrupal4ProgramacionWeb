@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario con API</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Formulario de Registro</h1>
+    <form id="formulario">
+        <label for="nombre">Nombre</label>
+        <input type="text" id="nombre" name="nombre" required>
+
+        <label for="correo">Correo</label>
+        <input type="email" id="correo" name="correo" required>
+
+        <label for="intereses">Intereses</label>
+        <input type="text" id="intereses" name="intereses" placeholder="Ej: Desarrollo web, Data Science" required>
+
+        <label for="descripcion">Descripción breve</label>
+        <textarea id="descripcion" name="descripcion" rows="4" required></textarea>
+
+        <button type="submit">Enviar</button>
+    </form>
+
+    <h2>Registros guardados</h2>
+
+    <button id="btn-ejecutar-pipeline">Ejecutar Pipeline</button>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Intereses</th>
+                <th>Descripción</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-registros"></tbody>
+    </table>
+
+    <script>
+        const API_POST_URL = "http://localhost:8000/formularios/";           // para enviar datos
+        const API_GET_URL = "http://localhost:8000/formularios_cleaned/";    // para mostrar los limpios
+
+
+        async function cargarRegistros() {
+
+            const tabla = document.getElementById("tabla-registros");
+            try {
+                const response = await fetch(API_GET_URL);
+                const data = await response.json();
+                tabla.innerHTML = "";                
+                data.forEach(item => {
+                    tabla.innerHTML += `
+                        <tr data-id="${item.id}">
+                            <td>${item.id}</td>
+                            <td contenteditable="false">${item.nombre}</td>
+                            <td contenteditable="false">${item.correo}</td>
+                            <td contenteditable="false">${item.intereses}</td>
+                            <td contenteditable="false">${item.descripcion}</td>
+                            <td>
+                                <button class="editar">Editar</button>
+                                <button class="guardar" style="display:none;">Guardar</button>
+                                <button class="eliminar">Eliminar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error("Error cargando registros:", error);
+            }
+
+            tabla.querySelectorAll(".editar").forEach(boton => {
+                boton.addEventListener("click", () => {
+                    const fila = boton.closest("tr");
+                    fila.querySelectorAll("td[contenteditable]").forEach(td => td.contentEditable = true);
+                    fila.querySelector(".guardar").style.display = "inline-block";
+                    boton.style.display = "none";
+                });
+            });
+
+            tabla.querySelectorAll(".guardar").forEach(boton => {
+                boton.addEventListener("click", async () => {
+                    const fila = boton.closest("tr");
+                    const id = fila.dataset.id;
+                    const celdas = fila.querySelectorAll("td");
+                    const datos = {
+                        nombre: celdas[1].innerText,
+                        correo: celdas[2].innerText,
+                        intereses: celdas[3].innerText,
+                        descripcion: celdas[4].innerText
+                    };
+                    const response = await fetch(`http://localhost:8000/formularios_cleaned/${id}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(datos)
+                    });
+                    if (response.ok) {
+                        alert("✅ Registro actualizado");
+                        cargarRegistros();
+                    } else {
+                        alert("❌ Error al actualizar");
+                    }
+                });
+            });
+
+            tabla.querySelectorAll(".eliminar").forEach(boton => {
+                boton.addEventListener("click", async () => {
+                    if (!confirm("¿Estás seguro de eliminar este registro?")) return;
+                    const fila = boton.closest("tr");
+                    const id = fila.dataset.id;
+                    const response = await fetch(`http://localhost:8000/formularios_cleaned/${id}`, {
+                        method: "DELETE"
+                    });
+                    if (response.ok) {
+                        alert("🗑️ Registro eliminado");
+                        cargarRegistros();
+                    } else {
+                        alert("❌ Error al eliminar");
+                    }
+                });
+            });
+
+
+        }
+
+        async function cargarPaises() {
+            try {
+                const response = await fetch("https://restcountries.com/v3.1/all");
+                const data = await response.json();
+                const lista = document.getElementById("lista-paises");
+                lista.innerHTML = "";
+                data.slice(0, 10).forEach(pais => {
+                    lista.innerHTML += `<li>${pais.name.common} - ${pais.region}</li>`;
+                });
+            } catch (error) {
+                console.error("Error cargando países:", error);
+            }
+        }
+
+        document.getElementById("formulario").addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const data = {
+                nombre: document.getElementById("nombre").value,
+                correo: document.getElementById("correo").value,
+                intereses: document.getElementById("intereses").value,
+                descripcion: document.getElementById("descripcion").value
+            };
+
+            try {
+                const response = await fetch(API_POST_URL, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(data)
+                });
+                if (response.ok) {
+                    alert("Formulario enviado correctamente");
+                    document.getElementById("formulario").reset();
+                    cargarRegistros();
+                } else {
+                    alert("Error al enviar el formulario");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Error de conexión con el servidor");
+            }
+        });
+
+        window.onload = function() {
+            cargarRegistros();
+            cargarPaises();
+        };
+
+        window.onload = function() {
+            cargarRegistros();
+            cargarPaises();
+        };
+
+
+        document.getElementById("btn-ejecutar-pipeline").addEventListener("click", async () => {
+            if (!confirm("¿Estás seguro de que quieres ejecutar el pipeline?")) return;
+
+            try {
+                const response = await fetch("http://localhost:8000/api/pipeline/run", {
+                    method: "POST"
+                });
+
+                if (response.ok) {
+                    alert("✅ Pipeline ejecutado exitosamente");
+                    cargarRegistros(); // recargar tabla con datos limpios
+                } else {
+                    const error = await response.json();
+                    alert("❌ Error al ejecutar el pipeline:\n" + error.error);
+                }
+            } catch (err) {
+                alert("❌ Error de conexión:\n" + err.message);
+            }
+        });
+
+    </script>
+</body>
+</html>
